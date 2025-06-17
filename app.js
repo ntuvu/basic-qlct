@@ -2,6 +2,7 @@
 console.log('Script starting to load...');
 
 import { supabaseUrl, supabaseKey } from './key.js';
+import { parseExcelDate } from './utils.js';
 
 // Check authentication
 function checkAuth() {
@@ -270,7 +271,7 @@ function formatCurrency(number) {
 }
 
 /**
- * Cập nhật các thẻ tóm tắt (Tổng thu, tổng chi, số dư)
+ * Cập nhật các thẻ tóm tắt (Tổng thu, tổng chi, số dư, nợ)
  * @param {Array<object>} transactions - Mảng các giao dịch
  */
 function updateSummary(transactions) {
@@ -287,12 +288,25 @@ function updateSummary(transactions) {
 
   const balance = totalIncome - totalExpense;
 
+  // Tính toán các khoản nợ chưa thanh toán
+  const unpaidDebtToMe = transactions
+    .filter(t => t.type === 'debt' && t.category === 'Người ta nợ tôi' && t.is_paid === 0)
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const unpaidDebtFromMe = transactions
+    .filter(t => t.type === 'debt' && t.category === 'Tôi nợ người ta' && t.is_paid === 0)
+    .reduce((sum, t) => sum + t.amount, 0);
+
   document.getElementById('total-income').textContent = formatCurrency(totalIncome);
   document.getElementById('total-expense').textContent = formatCurrency(totalExpense);
   const balanceEl = document.getElementById('balance');
   balanceEl.textContent = formatCurrency(balance);
   balanceEl.classList.toggle('text-red-900', balance < 0);
   balanceEl.classList.toggle('text-blue-900', balance >= 0);
+
+  // Cập nhật các khoản nợ
+  document.getElementById('total-unpaid-debt-to-me').textContent = formatCurrency(unpaidDebtToMe);
+  document.getElementById('total-unpaid-debt-from-me').textContent = formatCurrency(unpaidDebtFromMe);
 }
 
 /**
@@ -1157,23 +1171,3 @@ async function markDebtAsPaid(id) {
     alert('Có lỗi xảy ra khi cập nhật trạng thái nợ.');
   }
 }
-
-// Helper to parse Excel date (serial or string)
-function parseExcelDate(value) {
-  if (typeof value === 'number') {
-    // Excel serial date to JS date
-    const jsDate = new Date((value - 25569) * 86400 * 1000);
-    return dayjs(jsDate).format('YYYY-MM-DD');
-  } else if (typeof value === 'string') {
-    // Try parsing as DD/MM/YYYY
-    const d = dayjs(value, 'DD/MM/YYYY', true);
-    if (d.isValid()) return d.format('YYYY-MM-DD');
-    // Try parsing as YYYY-MM-DD
-    const d2 = dayjs(value, 'YYYY-MM-DD', true);
-    if (d2.isValid()) return d2.format('YYYY-MM-DD');
-    // Fallback: try native Date
-    const d3 = dayjs(value);
-    if (d3.isValid()) return d3.format('YYYY-MM-DD');
-  }
-  return null;
-} 

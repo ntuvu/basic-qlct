@@ -66,7 +66,8 @@
       </header>
 
       <!-- BẢNG TÓM TẮT -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
+        <!-- First row -->
         <div
           class="bg-gradient-to-br from-green-100 to-green-200 p-6 rounded-2xl shadow-sm"
         >
@@ -110,6 +111,41 @@
             </div>
           </div>
         </div>
+        <!-- Second row -->
+        <div class="lg:col-span-3 md:col-span-2 col-span-1">
+          <div class="flex justify-center gap-4 md:gap-6">
+            <div
+              class="bg-gradient-to-br from-yellow-100 to-yellow-200 p-6 rounded-2xl shadow-sm w-full md:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)]"
+            >
+              <div class="flex items-center space-x-4">
+                <div class="bg-yellow-500 p-3 rounded-full">
+                  <i data-lucide="user-plus" class="text-white"></i>
+                </div>
+                <div>
+                  <p class="text-sm text-yellow-800 font-medium">Nợ Chưa Đòi</p>
+                  <p id="total-unpaid-debt-to-me" class="text-2xl font-bold text-yellow-900">
+                    0 ₫
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div
+              class="bg-gradient-to-br from-orange-100 to-orange-200 p-6 rounded-2xl shadow-sm w-full md:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)]"
+            >
+              <div class="flex items-center space-x-4">
+                <div class="bg-orange-500 p-3 rounded-full">
+                  <i data-lucide="user-minus" class="text-white"></i>
+                </div>
+                <div>
+                  <p class="text-sm text-orange-800 font-medium">Nợ Chưa Trả</p>
+                  <p id="total-unpaid-debt-from-me" class="text-2xl font-bold text-orange-900">
+                    0 ₫
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- DANH SÁCH GIAO DỊCH -->
@@ -143,6 +179,14 @@
               <i data-lucide="file-down" class="mr-2 h-5 w-5"></i>
               Export Excel
             </button>
+            <!-- Report Button -->
+            <a
+              href="dashboard.html"
+              class="flex items-center bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200"
+            >
+              <i data-lucide="bar-chart-2" class="mr-2 h-5 w-5"></i>
+              Báo cáo
+            </a>
             <!-- Add Transaction Button -->
             <button
               id="add-transaction-btn"

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Báo Cáo Chi Tiêu</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Day.js -->
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Google AI SDK -->
+    <script type="module">
+      import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+      window.GoogleGenerativeAI = GoogleGenerativeAI;
+    </script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css" />
+
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.9/marked.min.js"></script>
+
+    <!-- Custom JavaScript -->
+    <script src="dashboard.js" type="module" defer></script>
+
+    <!-- Immediate auth check -->
+    <script>
+      if (!localStorage.getItem('user')) {
+        window.location.href = 'login.html';
+      }
+    </script>
+  </head>
+  <body class="bg-gray-50">
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+      <!-- Header -->
+      <header class="mb-8">
+        <div class="flex justify-between items-center">
+          <div>
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">
+              Báo Cáo Chi Tiêu
+            </h1>
+            <p class="text-gray-500 mt-1">
+              Phân tích chi tiết về thu chi của bạn
+            </p>
+          </div>
+          <a
+            href="index.html"
+            class="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <i data-lucide="arrow-left" class="w-4 h-4 mr-2"></i>
+            Quay lại
+          </a>
+        </div>
+      </header>
+
+      <!-- Charts Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- Monthly Income/Expense Bar Chart -->
+        <div class="bg-white p-6 rounded-xl shadow-sm">
+          <h2 class="text-xl font-semibold mb-4">Thu Chi Theo Tháng</h2>
+          <canvas id="monthlyChart"></canvas>
+        </div>
+
+        <!-- Category Pie Chart -->
+        <div class="bg-white p-6 rounded-xl shadow-sm">
+          <h2 class="text-xl font-semibold mb-4">Chi Tiêu Theo Danh Mục</h2>
+          <canvas id="categoryChart"></canvas>
+        </div>
+
+        <!-- Balance Line Chart -->
+        <div class="bg-white p-6 rounded-xl shadow-sm md:col-span-2">
+          <h2 class="text-xl font-semibold mb-4">Biến Động Số Dư</h2>
+          <canvas id="balanceChart"></canvas>
+        </div>
+      </div>
+
+      <!-- AI Analysis -->
+      <div class="bg-white p-6 rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold">Phân Tích Chi Tiêu</h2>
+          <button
+            id="refresh-analysis"
+            class="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+          >
+            <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>
+            Cập nhật
+          </button>
+        </div>
+        <div id="analysis-content" class="prose max-w-none">
+          <div class="animate-pulse">
+            <div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+            <div class="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+            <div class="h-4 bg-gray-200 rounded w-2/3"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html> 
