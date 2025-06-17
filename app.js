@@ -1,45 +1,8 @@
 // Add immediate console logging to verify script loading
 console.log('Script starting to load...');
 
-// ===================================================================================
-// BƯỚC 1: CÀI ĐẶT SUPABASE
-// 1. Truy cập https://supabase.com/dashboard/projects và tạo một dự án mới.
-// 2. Đi đến "Project Settings" (Biểu tượng bánh răng) -> "API".
-// 3. Sao chép "Project URL" và "anon" "public" key vào các biến supabaseUrl và supabaseKey dưới đây.
-// ===================================================================================
 const supabaseUrl = ''; // <-- THAY THẾ BẰNG URL DỰ ÁN CỦA BẠN
 const supabaseKey = ''; // <-- THAY THẾ BẰNG ANON KEY CỦA BẠN
-
-// ===================================================================================
-// BƯỚC 2: TẠO BẢNG TRONG SUPABASE
-// 1. Trong dự án Supabase của bạn, đi đến "SQL Editor".
-// 2. Nhấn "New query" và dán đoạn mã SQL dưới đây vào.
-// 3. Nhấn "RUN" để tạo bảng `transactions`.
-/*
-    CREATE TABLE transactions (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-      date DATE NOT NULL,
-      description TEXT NOT NULL,
-      amount NUMERIC NOT NULL,
-      category TEXT NOT NULL,
-      type TEXT NOT NULL -- 'income' (thu) hoặc 'expense' (chi)
-    );
-
-    -- Bật Row Level Security (RLS) để bảo mật
-    ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
-
-    -- Tạo chính sách cho phép mọi người dùng (public/anon) có thể đọc, ghi, sửa, xóa.
-    -- LƯU Ý: Đây là cấu hình cho mục đích demo. Trong ứng dụng thực tế, bạn nên 
-    -- thiết lập quy tắc bảo mật chặt chẽ hơn dựa trên xác thực người dùng (authentication).
-    CREATE POLICY "Public users can manage transactions" ON transactions
-    FOR ALL
-    USING (true)
-    WITH CHECK (true);
-*/
-// ===================================================================================
-
-// --- KHỞI TẠO CÁC BIẾN VÀ KẾT NỐI ---
 
 // Thêm các biến cho pagination và filtering
 const ITEMS_PER_PAGE = 10;
@@ -56,7 +19,7 @@ let currentFilters = {
 };
 
 // Kiểm tra xem người dùng đã điền thông tin Supabase chưa
-if (supabaseUrl === 'YOUR_SUPABASE_URL' || supabaseKey === 'YOUR_SUPABASE_ANON_KEY') {
+if (supabaseUrl === '' || supabaseKey === '') {
   document.body.innerHTML = `
         <div class="h-screen flex items-center justify-center bg-red-50 text-red-800">
             <div class="text-center p-8">
