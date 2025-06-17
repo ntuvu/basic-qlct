@@ -20,15 +20,19 @@ const supabaseKey = "YOUR_ANON_KEY"; // Replace with your anon key
 3. Click "RUN" to create the `transactions` table
 
 ```sql
-CREATE TABLE transactions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-  date DATE NOT NULL,
-  description TEXT NOT NULL,
-  amount NUMERIC NOT NULL,
-  category TEXT NOT NULL,
-  type TEXT NOT NULL -- 'income' (thu) hoặc 'expense' (chi)
-);
+create table public.transactions (
+  id uuid not null default gen_random_uuid (),
+  created_at timestamp with time zone not null default timezone ('utc'::text, now()),
+  date date not null,
+  description text not null,
+  amount numeric not null,
+  category text not null,
+  type text not null,
+  related_person text null,
+  is_paid smallint null default '0'::smallint,
+  user_id uuid null,
+  constraint transactions_pkey primary key (id)
+) TABLESPACE pg_default;
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
