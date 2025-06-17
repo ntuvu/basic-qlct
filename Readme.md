@@ -49,3 +49,4 @@ WITH CHECK (true);
 ## Security Note
 
 The current configuration allows public access to the transactions table for demonstration purposes. In a production environment, you should implement proper authentication and more restrictive security policies.
+ 

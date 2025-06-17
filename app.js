@@ -1,6 +1,8 @@
 // Add immediate console logging to verify script loading
 console.log('Script starting to load...');
 
+import { supabaseUrl, supabaseKey } from './key.js';
+
 // Check authentication
 function checkAuth() {
   const user = localStorage.getItem('user');
@@ -16,8 +18,6 @@ if (!currentUser) {
   throw new Error("User not authenticated");
 }
 
-const supabaseUrl = '';
-const supabaseKey = '';
 const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
 // Add logout functionality
