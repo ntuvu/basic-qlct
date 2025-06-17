@@ -1,0 +1,37 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f8fafc; /* gray-50 */
+}
+
+/* Tùy chỉnh thanh cuộn */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Fix cho date picker trên các trình duyệt khác nhau */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.6;
+    filter: invert(0.5);
+}
+
+.modal-backdrop {
+    transition: opacity 0.3s ease-in-out;
+}
+
+.modal-content {
+    transition: transform 0.3s ease-in-out;
+} 

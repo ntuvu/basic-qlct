@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sổ Chi Tiêu Cá Nhân</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Day.js for date formatting -->
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/customParseFormat.js"></script>
+
+    <!-- SheetJS for Excel processing -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css" />
+
+    <!-- Custom JavaScript -->
+    <script src="app.js" defer></script>
+  </head>
+  <body class="text-gray-800">
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+      <!-- TIÊU ĐỀ -->
+      <header class="mb-8">
+        <h1 class="text-3xl md:text-4xl font-bold text-gray-800">
+          Sổ Chi Tiêu Cá Nhân
+        </h1>
+        <p class="text-gray-500 mt-1">
+          Ghi chép và quản lý tài chính của bạn một cách hiệu quả.
+        </p>
+      </header>
+
+      <!-- BẢNG TÓM TẮT -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
+        <div
+          class="bg-gradient-to-br from-green-100 to-green-200 p-6 rounded-2xl shadow-sm"
+        >
+          <div class="flex items-center space-x-4">
+            <div class="bg-green-500 p-3 rounded-full">
+              <i data-lucide="arrow-down-left" class="text-white"></i>
+            </div>
+            <div>
+              <p class="text-sm text-green-800 font-medium">Tổng Thu</p>
+              <p id="total-income" class="text-2xl font-bold text-green-900">
+                0 ₫
+              </p>
+            </div>
+          </div>
+        </div>
+        <div
+          class="bg-gradient-to-br from-red-100 to-red-200 p-6 rounded-2xl shadow-sm"
+        >
+          <div class="flex items-center space-x-4">
+            <div class="bg-red-500 p-3 rounded-full">
+              <i data-lucide="arrow-up-right" class="text-white"></i>
+            </div>
+            <div>
+              <p class="text-sm text-red-800 font-medium">Tổng Chi</p>
+              <p id="total-expense" class="text-2xl font-bold text-red-900">
+                0 ₫
+              </p>
+            </div>
+          </div>
+        </div>
+        <div
+          class="bg-gradient-to-br from-blue-100 to-blue-200 p-6 rounded-2xl shadow-sm"
+        >
+          <div class="flex items-center space-x-4">
+            <div class="bg-blue-500 p-3 rounded-full">
+              <i data-lucide="wallet" class="text-white"></i>
+            </div>
+            <div>
+              <p class="text-sm text-blue-800 font-medium">Số Dư Hiện Tại</p>
+              <p id="balance" class="text-2xl font-bold text-blue-900">0 ₫</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DANH SÁCH GIAO DỊCH -->
+      <main class="bg-white p-6 md:p-8 rounded-2xl shadow-sm">
+        <div
+          class="flex flex-col md:flex-row justify-between items-center mb-6"
+        >
+          <h2 class="text-2xl font-bold text-gray-700">Lịch sử giao dịch</h2>
+          <div class="flex space-x-4 mt-4 md:mt-0">
+            <!-- Import Excel Button -->
+            <div class="relative">
+              <input
+                type="file"
+                id="excel-file-input"
+                accept=".xlsx, .xls"
+                class="hidden"
+              />
+              <button
+                id="import-excel-btn"
+                class="flex items-center bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200"
+              >
+                <i data-lucide="file-up" class="mr-2 h-5 w-5"></i>
+                Import Excel
+              </button>
+            </div>
+            <!-- Export Excel Button -->
+            <button
+              id="export-excel-btn"
+              class="flex items-center bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-purple-700 transition-colors duration-200"
+            >
+              <i data-lucide="file-down" class="mr-2 h-5 w-5"></i>
+              Export Excel
+            </button>
+            <!-- Add Transaction Button -->
+            <button
+              id="add-transaction-btn"
+              class="flex items-center bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200"
+            >
+              <i data-lucide="plus" class="mr-2 h-5 w-5"></i>
+              Thêm Giao Dịch
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter and Sort Controls -->
+        <div class="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+          <!-- Type Filter -->
+          <div>
+            <label
+              for="type-filter"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Loại giao dịch</label
+            >
+            <select
+              id="type-filter"
+              class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">Tất cả</option>
+              <option value="income">Thu</option>
+              <option value="expense">Chi</option>
+              <option value="debt">Nợ</option>
+            </select>
+          </div>
+
+          <!-- Category Filter -->
+          <div>
+            <label
+              for="category-filter"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Phân loại</label
+            >
+            <select
+              id="category-filter"
+              class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">Tất cả</option>
+            </select>
+          </div>
+
+          <!-- Payment Status Filter -->
+          <div id="payment-status-filter-container" class="hidden">
+            <label
+              for="payment-status-filter"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Trạng thái</label
+            >
+            <select
+              id="payment-status-filter"
+              class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">Tất cả</option>
+              <option value="paid">Đã trả</option>
+              <option value="unpaid">Chưa trả</option>
+            </select>
+          </div>
+
+          <!-- Date Range Filter -->
+          <div>
+            <label
+              for="date-range"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Khoảng thời gian</label
+            >
+            <select
+              id="date-range"
+              class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">Tất cả</option>
+              <option value="today">Hôm nay</option>
+              <option value="week">Tuần này</option>
+              <option value="month">Tháng này</option>
+              <option value="year">Năm nay</option>
+            </select>
+          </div>
+
+          <!-- Sort By -->
+          <div>
+            <label
+              for="sort-by"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Sắp xếp theo</label
+            >
+            <select
+              id="sort-by"
+              class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="date-desc">Ngày (mới nhất)</option>
+              <option value="date-asc">Ngày (cũ nhất)</option>
+              <option value="amount-desc">Số tiền (cao nhất)</option>
+              <option value="amount-asc">Số tiền (thấp nhất)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Search Filters -->
+        <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Description Search -->
+          <div>
+            <label
+              for="description-search"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Tìm kiếm nội dung</label
+            >
+            <div class="relative">
+              <input
+                type="text"
+                id="description-search"
+                class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 pl-10"
+                placeholder="Nhập nội dung cần tìm..."
+              />
+              <div
+                class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+              >
+                <i data-lucide="search" class="h-5 w-5 text-gray-400"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Related Person Search -->
+          <div>
+            <label
+              for="related-person-search"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Tìm kiếm người liên quan</label
+            >
+            <div class="relative">
+              <input
+                type="text"
+                id="related-person-search"
+                class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 pl-10"
+                placeholder="Nhập tên người liên quan..."
+              />
+              <div
+                class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+              >
+                <i data-lucide="users" class="h-5 w-5 text-gray-400"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reset Filters Button -->
+        <div class="mb-6 flex justify-end">
+          <button
+            id="reset-filters-btn"
+            class="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>
+            Đặt lại bộ lọc
+          </button>
+        </div>
+
+        <!-- Bảng dữ liệu -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead class="border-b-2 border-gray-200">
+              <tr class="text-sm text-gray-600">
+                <th class="p-4">Ngày</th>
+                <th class="p-4">Nội dung</th>
+                <th class="p-4">Phân loại</th>
+                <th class="p-4">Người liên quan</th>
+                <th class="p-4 text-right">Số tiền</th>
+                <th class="p-4 text-center">Trạng thái</th>
+                <th class="p-4 text-right">Hành động</th>
+              </tr>
+            </thead>
+            <tbody id="transaction-list">
+              <!-- Dữ liệu giao dịch sẽ được chèn vào đây bởi JavaScript -->
+              <tr id="loading-state">
+                <td colspan="7" class="text-center p-8">
+                  <div
+                    class="flex justify-center items-center space-x-2 text-gray-500"
+                  >
+                    <i data-lucide="loader-2" class="animate-spin"></i>
+                    <span>Đang tải dữ liệu...</span>
+                  </div>
+                </td>
+              </tr>
+              <tr id="empty-state" class="hidden">
+                <td colspan="7" class="text-center p-8 text-gray-500">
+                  Chưa có giao dịch nào. Hãy thêm giao dịch đầu tiên của bạn!
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="mt-6 flex justify-between items-center">
+          <div class="text-sm text-gray-600">
+            Hiển thị <span id="pagination-start">0</span> -
+            <span id="pagination-end">0</span> của
+            <span id="pagination-total">0</span> giao dịch
+          </div>
+          <div class="flex space-x-2">
+            <button
+              id="prev-page"
+              class="px-3 py-1 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <i data-lucide="chevron-left" class="h-5 w-5"></i>
+            </button>
+            <button
+              id="next-page"
+              class="px-3 py-1 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <i data-lucide="chevron-right" class="h-5 w-5"></i>
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- MODAL THÊM/SỬA GIAO DỊCH -->
+    <div
+      id="transaction-modal"
+      class="fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center z-50 hidden modal-backdrop"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-2xl p-8 w-11/12 md:w-1/2 lg:w-1/3 max-w-lg m-4 modal-content transform scale-95"
+      >
+        <div class="flex justify-between items-center mb-6">
+          <h3 id="modal-title" class="text-2xl font-bold">
+            Thêm Giao Dịch Mới
+          </h3>
+          <button
+            id="close-modal-btn"
+            class="text-gray-500 hover:text-gray-800"
+          >
+            <i data-lucide="x" class="h-6 w-6"></i>
+          </button>
+        </div>
+
+        <form id="transaction-form">
+          <input type="hidden" id="transaction-id" />
+
+          <!-- Loại Giao Dịch -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Loại giao dịch</label
+            >
+            <div class="flex space-x-2">
+              <input
+                type="radio"
+                id="type-expense"
+                name="type"
+                value="expense"
+                class="hidden"
+                checked
+              />
+              <label
+                for="type-expense"
+                class="type-label flex-1 text-center p-3 rounded-lg cursor-pointer border-2 font-semibold"
+                >Chi Tiền</label
+              >
+
+              <input
+                type="radio"
+                id="type-income"
+                name="type"
+                value="income"
+                class="hidden"
+              />
+              <label
+                for="type-income"
+                class="type-label flex-1 text-center p-3 rounded-lg cursor-pointer border-2 font-semibold"
+                >Thu Tiền</label
+              >
+
+              <input
+                type="radio"
+                id="type-debt"
+                name="type"
+                value="debt"
+                class="hidden"
+              />
+              <label
+                for="type-debt"
+                class="type-label flex-1 text-center p-3 rounded-lg cursor-pointer border-2 font-semibold"
+                >Nợ</label
+              >
+            </div>
+          </div>
+
+          <!-- Trạng thái thanh toán (chỉ hiển thị khi chọn loại Nợ) -->
+          <div id="payment-status-container" class="mb-4 hidden">
+            <div class="flex items-center">
+              <input
+                type="checkbox"
+                id="is-paid"
+                name="is-paid"
+                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label for="is-paid" class="ml-2 block text-sm text-gray-700">
+                Đã thanh toán
+              </label>
+            </div>
+          </div>
+
+          <!-- Số tiền -->
+          <div class="mb-4">
+            <label for="amount" class="block text-sm font-medium text-gray-700"
+              >Số tiền</label
+            >
+            <input
+              type="number"
+              id="amount"
+              name="amount"
+              class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              placeholder="0"
+              required
+            />
+          </div>
+
+          <!-- Nội dung -->
+          <div class="mb-4">
+            <label
+              for="description"
+              class="block text-sm font-medium text-gray-700"
+              >Nội dung</label
+            >
+            <input
+              type="text"
+              id="description"
+              name="description"
+              class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              placeholder="VD: Cà phê với bạn bè"
+              required
+            />
+          </div>
+
+          <!-- Người liên quan (chỉ hiển thị khi chọn loại Nợ) -->
+          <div id="related-person-container" class="mb-4 hidden">
+            <label
+              for="related-person"
+              class="block text-sm font-medium text-gray-700"
+              >Người liên quan</label
+            >
+            <input
+              type="text"
+              id="related-person"
+              name="related-person"
+              class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              placeholder="VD: Nguyễn Văn A"
+            />
+          </div>
+
+          <!-- Phân loại -->
+          <div class="mb-4">
+            <label
+              for="category"
+              class="block text-sm font-medium text-gray-700"
+              >Phân loại</label
+            >
+            <select
+              id="category"
+              name="category"
+              class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              required
+            >
+              <!-- Options được thêm bởi JS -->
+            </select>
+          </div>
+
+          <!-- Ngày -->
+          <div class="mb-6">
+            <label for="date" class="block text-sm font-medium text-gray-700"
+              >Ngày</label
+            >
+            <input
+              type="date"
+              id="date"
+              name="date"
+              class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              required
+            />
+          </div>
+
+          <!-- Nút Lưu -->
+          <button
+            type="submit"
+            id="save-btn"
+            class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200 flex justify-center items-center"
+          >
+            <span id="save-btn-text">Lưu Giao Dịch</span>
+            <i
+              id="save-spinner"
+              data-lucide="loader-2"
+              class="animate-spin ml-2 hidden"
+            ></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>
