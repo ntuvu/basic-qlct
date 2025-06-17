@@ -1,8 +1,39 @@
 // Add immediate console logging to verify script loading
 console.log('Script starting to load...');
 
-const supabaseUrl = ''; // <-- THAY THẾ BẰNG URL DỰ ÁN CỦA BẠN
-const supabaseKey = ''; // <-- THAY THẾ BẰNG ANON KEY CỦA BẠN
+// Check authentication
+function checkAuth() {
+  const user = localStorage.getItem('user');
+  if (!user) {
+    window.location.href = 'login.html';
+    return null;
+  }
+  return JSON.parse(user);
+}
+
+const currentUser = checkAuth();
+if (!currentUser) {
+  throw new Error("User not authenticated");
+}
+
+const supabaseUrl = '';
+const supabaseKey = '';
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+// Add logout functionality
+function logout() {
+  localStorage.removeItem('user');
+  window.location.href = 'login.html';
+}
+
+// Add logout button event listener
+document.addEventListener('DOMContentLoaded', () => {
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', logout);
+  }
+  lucide.createIcons();
+});
 
 // Thêm các biến cho pagination và filtering
 const ITEMS_PER_PAGE = 10;
@@ -17,22 +48,6 @@ let currentFilters = {
   description: '',
   relatedPerson: ''
 };
-
-// Kiểm tra xem người dùng đã điền thông tin Supabase chưa
-if (supabaseUrl === '' || supabaseKey === '') {
-  document.body.innerHTML = `
-        <div class="h-screen flex items-center justify-center bg-red-50 text-red-800">
-            <div class="text-center p-8">
-                <h1 class="text-3xl font-bold mb-4">Lỗi Cấu Hình Supabase</h1>
-                <p class="text-lg">Vui lòng mở file HTML, tìm đến phần script và điền <strong>supabaseUrl</strong> và <strong>supabaseKey</strong> của bạn.</p>
-                <p class="mt-2">Bạn có thể tìm thấy các thông tin này trong phần cài đặt API của dự án Supabase.</p>
-            </div>
-        </div>
-    `;
-  throw new Error("Supabase credentials are not set.");
-}
-
-const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
 // Thiết lập Day.js
 dayjs.extend(window.dayjs_plugin_customParseFormat);
@@ -59,7 +74,8 @@ async function fetchTransactions() {
     console.log('Fetching transactions with filters:', currentFilters);
     let query = supabase
       .from('transactions')
-      .select('*', { count: 'exact' });
+      .select('*', { count: 'exact' })
+      .eq('user_id', currentUser.id);
 
     // Áp dụng các bộ lọc
     if (currentFilters.type !== 'all') {
@@ -144,7 +160,10 @@ async function fetchTransactions() {
 async function addTransaction(transactionData) {
   const { data, error } = await supabase
     .from('transactions')
-    .insert([transactionData]);
+    .insert([{
+      ...transactionData,
+      user_id: currentUser.id
+    }]);
 
   if (error) {
     console.error('Lỗi khi thêm giao dịch:', error);
@@ -159,10 +178,23 @@ async function addTransaction(transactionData) {
  * @param {object} transactionData - Dữ liệu giao dịch mới
  */
 async function updateTransaction(id, transactionData) {
+  // First check if the transaction belongs to the current user
+  const { data: existingTransaction, error: checkError } = await supabase
+    .from('transactions')
+    .select('user_id')
+    .eq('id', id)
+    .single();
+
+  if (checkError || existingTransaction.user_id !== currentUser.id) {
+    alert('Không có quyền cập nhật giao dịch này.');
+    return null;
+  }
+
   const { data, error } = await supabase
     .from('transactions')
     .update(transactionData)
-    .eq('id', id);
+    .eq('id', id)
+    .eq('user_id', currentUser.id);
 
   if (error) {
     console.error('Lỗi khi cập nhật giao dịch:', error);
@@ -179,16 +211,29 @@ async function deleteTransaction(id) {
   const confirmed = confirm('Bạn có chắc chắn muốn xóa giao dịch này không?');
   if (!confirmed) return;
 
+  // First check if the transaction belongs to the current user
+  const { data: existingTransaction, error: checkError } = await supabase
+    .from('transactions')
+    .select('user_id')
+    .eq('id', id)
+    .single();
+
+  if (checkError || existingTransaction.user_id !== currentUser.id) {
+    alert('Không có quyền xóa giao dịch này.');
+    return;
+  }
+
   const { error } = await supabase
     .from('transactions')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('user_id', currentUser.id);
 
   if (error) {
     console.error('Lỗi khi xóa giao dịch:', error);
     alert('Đã xảy ra lỗi khi xóa giao dịch.');
   } else {
-    loadAndRenderData(); // Tải lại dữ liệu sau khi xóa thành công
+    loadAndRenderData();
   }
 }
 
@@ -199,7 +244,8 @@ async function fetchAllTransactionsForSummary() {
   try {
     const { data, error } = await supabase
       .from('transactions')
-      .select('*');
+      .select('*')
+      .eq('user_id', currentUser.id);
 
     if (error) {
       console.error('Lỗi khi lấy dữ liệu tổng kết:', error);
@@ -490,6 +536,7 @@ function updateCategoryFilter() {
 function updatePaginationInfo() {
   const start = totalItems === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1;
   const end = Math.min(currentPage * ITEMS_PER_PAGE, totalItems);
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
   document.getElementById('pagination-start').textContent = start;
   document.getElementById('pagination-end').textContent = end;
@@ -498,6 +545,69 @@ function updatePaginationInfo() {
   // Cập nhật trạng thái nút phân trang
   document.getElementById('prev-page').disabled = currentPage === 1;
   document.getElementById('next-page').disabled = end >= totalItems;
+
+  // Cập nhật số trang
+  const pageNumbersContainer = document.getElementById('page-numbers');
+  pageNumbersContainer.innerHTML = '';
+
+  // Số lượng trang hiển thị tối đa
+  const maxVisiblePages = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+  // Điều chỉnh startPage nếu endPage đạt giới hạn
+  if (endPage - startPage + 1 < maxVisiblePages) {
+    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+  }
+
+  // Thêm nút trang đầu tiên nếu cần
+  if (startPage > 1) {
+    const firstPageBtn = createPageButton(1);
+    pageNumbersContainer.appendChild(firstPageBtn);
+    if (startPage > 2) {
+      const ellipsis = document.createElement('span');
+      ellipsis.className = 'px-3 py-1 text-gray-500';
+      ellipsis.textContent = '...';
+      pageNumbersContainer.appendChild(ellipsis);
+    }
+  }
+
+  // Thêm các nút số trang
+  for (let i = startPage; i <= endPage; i++) {
+    const pageButton = createPageButton(i);
+    pageNumbersContainer.appendChild(pageButton);
+  }
+
+  // Thêm nút trang cuối cùng nếu cần
+  if (endPage < totalPages) {
+    if (endPage < totalPages - 1) {
+      const ellipsis = document.createElement('span');
+      ellipsis.className = 'px-3 py-1 text-gray-500';
+      ellipsis.textContent = '...';
+      pageNumbersContainer.appendChild(ellipsis);
+    }
+    const lastPageBtn = createPageButton(totalPages);
+    pageNumbersContainer.appendChild(lastPageBtn);
+  }
+}
+
+/**
+ * Tạo nút số trang
+ * @param {number} pageNumber - Số trang
+ * @returns {HTMLElement} - Nút số trang
+ */
+function createPageButton(pageNumber) {
+  const button = document.createElement('button');
+  button.className = `px-3 py-1 border rounded-lg hover:bg-gray-50 ${pageNumber === currentPage
+    ? 'bg-blue-600 text-white border-blue-600'
+    : 'text-gray-700'
+    }`;
+  button.textContent = pageNumber;
+  button.addEventListener('click', () => {
+    currentPage = pageNumber;
+    loadAndRenderData();
+  });
+  return button;
 }
 
 // --- HÀM CHÍNH VÀ CÁC EVENT LISTENER ---
@@ -742,29 +852,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Description search
   if (descriptionSearch) {
-    let searchTimeout;
-    descriptionSearch.addEventListener('input', function (e) {
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => {
+    descriptionSearch.addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
         console.log('Description search changed:', e.target.value);
         currentFilters.description = e.target.value;
         currentPage = 1;
         loadAndRenderData();
-      }, 1000); // Debounce search for 1000ms
+      }
     });
   }
 
   // Related person search
   if (relatedPersonSearch) {
-    let searchTimeout;
-    relatedPersonSearch.addEventListener('input', function (e) {
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => {
+    relatedPersonSearch.addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
         console.log('Related person search changed:', e.target.value);
         currentFilters.relatedPerson = e.target.value;
         currentPage = 1;
         loadAndRenderData();
-      }, 1000); // Debounce search for 1000ms
+      }
     });
   }
 
@@ -962,6 +1070,7 @@ async function exportExcel() {
     const { data: transactions, error } = await supabase
       .from('transactions')
       .select('*')
+      .eq('user_id', currentUser.id)
       .order('date', { ascending: false });
 
     if (error) throw error;
