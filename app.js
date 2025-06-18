@@ -331,7 +331,7 @@ function renderTransactions(transactions) {
       const isIncome = t.type === 'income';
       const isDebt = t.type === 'debt';
       const row = document.createElement('tr');
-      row.className = 'border-b border-gray-100 hover:bg-gray-50 transaction-row';
+      row.className = 'border-b border-gray-100 hover:bg-gray-50 transaction-row block md:table-row mb-4 md:mb-0 rounded-lg md:rounded-none shadow md:shadow-none';
 
       let amountClass = '';
       let amountPrefix = '';
@@ -346,32 +346,22 @@ function renderTransactions(transactions) {
         amountPrefix = t.category === 'Tôi nợ người ta' ? '-' : '+';
       }
 
-      // Create payment status cell
-      let statusCell = '';
-      if (isDebt) {
-        const isPaid = t.is_paid === 1;
-        statusCell = `
-          <td class="p-4 text-center">
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-          }">
-              ${isPaid ? 'Đã trả' : 'Chưa trả'}
-            </span>
-          </td>
-        `;
-      } else {
-        statusCell = '<td class="p-4 text-center">-</td>';
-      }
-
       row.innerHTML = `
-        <td class="p-4 font-medium">${dayjs(t.date).format('DD/MM/YYYY')}</td>
-        <td class="p-4">${t.description}</td>
-        <td class="p-4 text-sm text-gray-600">${t.category}</td>
-        <td class="p-4 text-sm text-gray-600">${t.related_person || '-'}</td>
-        <td class="p-4 text-right font-semibold ${amountClass}">
+        <td class="p-4 font-medium block md:table-cell" data-label="Ngày">${dayjs(t.date).format('DD/MM/YYYY')}</td>
+        <td class="p-4 block md:table-cell" data-label="Nội dung">${t.description}</td>
+        <td class="p-4 text-sm text-gray-600 block md:table-cell" data-label="Phân loại">${t.category}</td>
+        <td class="p-4 text-sm text-gray-600 block md:table-cell" data-label="Người liên quan">${t.related_person || '-'}</td>
+        <td class="p-4 text-right font-semibold ${amountClass} block md:table-cell" data-label="Số tiền">
           ${amountPrefix} ${formatCurrency(t.amount)}
         </td>
-        ${statusCell}
-        <td class="p-4 text-right">
+        ${isDebt ? `
+        <td class="p-4 text-center block md:table-cell" data-label="Trạng thái">
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${t.is_paid === 1 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+            ${t.is_paid === 1 ? 'Đã trả' : 'Chưa trả'}
+          </span>
+        </td>
+        ` : '<td class="p-4 text-center block md:table-cell" data-label="Trạng thái">-</td>'}
+        <td class="p-4 text-right block md:table-cell" data-label="Hành động">
           ${isDebt && !t.is_paid ? `
             <button class="mark-paid-btn p-2 text-gray-500 hover:text-green-600 mr-2" data-id="${t.id}">
               <i data-lucide="check-circle" class="h-5 w-5"></i>

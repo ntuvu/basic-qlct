@@ -34,4 +34,14 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .modal-content {
     transition: transform 0.3s ease-in-out;
+}
+
+@media (max-width: 767px) {
+  #transaction-list td[data-label]::before {
+    content: attr(data-label) ": ";
+    font-weight: 600;
+    color: #6b7280; /* Tailwind gray-500 */
+    display: inline-block;
+    min-width: 110px;
+  }
 } 
