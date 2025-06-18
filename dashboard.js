@@ -303,12 +303,12 @@ async function generateAnalysis(transactions) {
         temperature: 0.7,
         topK: 1,
         topP: 1,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 65536,
       }
     });
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    
+    console.log(response.text());
     document.getElementById('analysis-content').innerHTML = `
       <div class="prose prose-sm max-w-none">
         ${marked.parse(response.text())}
@@ -333,7 +333,6 @@ async function initializeDashboard() {
   createCategoryChart(categoryData);
   createBalanceChart(balanceData);
   
-  await generateAnalysis(transactions);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -349,5 +348,11 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
     initializeDashboard();
+  });
+
+  // Add event listener for AI analysis button
+  document.getElementById('ai-analysis-btn').addEventListener('click', async () => {
+    const transactions = await fetchTransactions();
+    await generateAnalysis(transactions);
   });
 }); 
