@@ -65,6 +65,24 @@ const form = document.getElementById('transaction-form');
 const modalTitle = document.getElementById('modal-title');
 const transactionIdInput = document.getElementById('transaction-id');
 
+// Format VND as user types
+const amountInput = document.getElementById('amount');
+if (amountInput) {
+  amountInput.addEventListener('input', function (e) {
+    let raw = e.target.value.replace(/[^\d]/g, '');
+    if (raw) {
+      let formatted = new Intl.NumberFormat('vi-VN').format(raw) + ' ₫';
+      e.target.value = formatted;
+      // Set cursor before the ₫ symbol
+      setTimeout(() => {
+        e.target.setSelectionRange(formatted.length - 2, formatted.length - 2);
+      }, 0);
+    } else {
+      e.target.value = '';
+    }
+  });
+}
+
 // --- CÁC HÀM XỬ LÝ DỮ LIỆU VỚI SUPABASE ---
 
 /**
@@ -382,6 +400,57 @@ function renderTransactions(transactions) {
   lucide.createIcons();
 }
 
+// --- Tom Select for Người liên quan (expense) ---
+let relatedTomSelect = null;
+async function loadRelatedPeopleOptions() {
+  const select = document.getElementById('related-multiselect');
+  if (!select) return;
+  // Clear old options
+  select.innerHTML = '';
+  // Fetch from Supabase
+  const { data, error } = await supabase
+    .from('related')
+    .select('id, name')
+    .eq('user_id', currentUser.id);
+  if (error) {
+    console.error('Lỗi khi lấy danh sách người liên quan:', error);
+    return;
+  }
+  data.forEach(person => {
+    const option = document.createElement('option');
+    option.value = person.id;
+    option.textContent = person.name;
+    select.appendChild(option);
+  });
+  // Destroy previous instance if exists
+  if (relatedTomSelect) {
+    relatedTomSelect.destroy();
+  }
+  relatedTomSelect = new TomSelect('#related-multiselect', {
+    maxItems: null,
+    valueField: 'value',
+    labelField: 'text',
+    searchField: 'text',
+    placeholder: 'Chọn người liên quan...',
+    plugins: ['remove_button'],
+    create: async function(input, callback) {
+      // Insert new related person into Supabase
+      const { data, error } = await supabase
+        .from('related')
+        .insert([{ name: input, user_id: currentUser.id }])
+        .select('id, name')
+        .single();
+      if (error) {
+        alert('Không được trùng tên người liên quan');
+        callback();
+        return;
+      }
+      // Add new option to Tom Select and select it
+      callback({ value: data.id, text: data.name });
+    }
+  });
+}
+
 /**
  * Cập nhật giao diện form khi chuyển đổi giữa Thu/Chi/Nợ
  */
@@ -391,6 +460,7 @@ function updateFormUIBasedOnType() {
   const incomeLabel = document.querySelector('label[for="type-income"]');
   const debtLabel = document.querySelector('label[for="type-debt"]');
   const relatedPersonContainer = document.getElementById('related-person-container');
+  const relatedMultiselectContainer = document.getElementById('related-multiselect-container');
   const paymentStatusContainer = document.getElementById('payment-status-container');
 
   // Reset all labels
@@ -414,9 +484,16 @@ function updateFormUIBasedOnType() {
   // Show/hide related person field and payment status
   if (selectedType === 'debt') {
     relatedPersonContainer.classList.remove('hidden');
+    relatedMultiselectContainer.classList.add('hidden');
     paymentStatusContainer.classList.remove('hidden');
+  } else if (selectedType === 'expense') {
+    relatedPersonContainer.classList.add('hidden');
+    relatedMultiselectContainer.classList.remove('hidden');
+    paymentStatusContainer.classList.add('hidden');
+    loadRelatedPeopleOptions();
   } else {
     relatedPersonContainer.classList.add('hidden');
+    relatedMultiselectContainer.classList.add('hidden');
     paymentStatusContainer.classList.add('hidden');
   }
 
@@ -452,7 +529,7 @@ function populateCategories(type) {
  * Mở modal và điền dữ liệu (nếu là chỉnh sửa)
  * @param {object|null} transaction - Dữ liệu giao dịch để chỉnh sửa, hoặc null để thêm mới
  */
-function openModal(transaction = null) {
+async function openModal(transaction = null) {
   form.reset();
   if (transaction) {
     modalTitle.textContent = 'Chỉnh Sửa Giao Dịch';
@@ -460,16 +537,13 @@ function openModal(transaction = null) {
     document.getElementById('amount').value = transaction.amount;
     document.getElementById('description').value = transaction.description;
     document.getElementById('date').value = transaction.date;
-
     const typeRadio = document.getElementById(`type-${transaction.type}`);
     if (typeRadio) typeRadio.checked = true;
-
     populateCategories(transaction.type);
     document.getElementById('category').value = transaction.category;
-
     // Set related person value and payment status if it's a debt transaction
     if (transaction.type === 'debt') {
-      document.getElementById('related-person').value = transaction.related_person || '';
+      await populateRelatedPersonSelect(transaction.related_id || '');
       document.getElementById('is-paid').checked = transaction.is_paid === 1;
     }
   } else {
@@ -478,6 +552,11 @@ function openModal(transaction = null) {
     document.getElementById('date').value = dayjs().format('YYYY-MM-DD');
     populateCategories('expense'); // Mặc định là chi
     document.getElementById('is-paid').checked = false;
+    await populateRelatedPersonSelect();
+  }
+  // Reset Tom Select
+  if (relatedTomSelect) {
+    relatedTomSelect.clear();
   }
   updateFormUIBasedOnType();
   modal.classList.remove('hidden');
@@ -636,52 +715,109 @@ async function loadAndRenderData() {
 // Xử lý sự kiện khi form được submit
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-
   const saveBtnText = document.getElementById('save-btn-text');
   const saveSpinner = document.getElementById('save-spinner');
-
   saveBtnText.classList.add('hidden');
   saveSpinner.classList.remove('hidden');
   document.getElementById('save-btn').disabled = true;
-
   const formData = new FormData(form);
+  const rawAmount = formData.get('amount').replace(/[^\d]/g, '');
+  const type = formData.get('type');
+  const description = formData.get('description');
+  const date = formData.get('date');
+  const category = formData.get('category');
+  const totalAmount = parseFloat(rawAmount);
+  const id = transactionIdInput.value;
+  // Handle expense with related people splitting
+  if (!id && type === 'expense') {
+    // Get selected related people
+    let relatedIds = [];
+    if (relatedTomSelect) {
+      relatedIds = relatedTomSelect.getValue();
+    }
+    if (relatedIds.length > 0) {
+      // Fetch related people info for selected ids
+      const { data: relatedPeople, error } = await supabase
+        .from('related')
+        .select('id, name')
+        .in('id', relatedIds);
+      if (error) {
+        alert('Lỗi khi lấy thông tin người liên quan');
+        return;
+      }
+      const splitAmount = Math.round((totalAmount / (relatedPeople.length + 1)) * 100) / 100;
+      // 1 expense record for current user
+      await addTransaction({
+        date,
+        description,
+        amount: splitAmount,
+        category,
+        type: 'expense',
+        is_paid: null
+      });
+      // N debt records for each related person
+      for (const person of relatedPeople) {
+        await addTransaction({
+          date,
+          description,
+          amount: splitAmount,
+          category: 'Người ta nợ tôi',
+          type: 'debt',
+          related_person: person.name,
+          related_id: person.id,
+          is_paid: 0
+        });
+      }
+      // Done, reset UI
+      saveBtnText.classList.remove('hidden');
+      saveSpinner.classList.add('hidden');
+      document.getElementById('save-btn').disabled = false;
+      closeModal();
+      loadAndRenderData();
+      return;
+    }
+  }
+  // ... existing code for debt/income/normal expense ...
   const transactionData = {
-    date: formData.get('date'),
-    description: formData.get('description'),
-    amount: parseFloat(formData.get('amount')),
-    category: formData.get('category'),
-    type: formData.get('type')
+    date,
+    description,
+    amount: totalAmount,
+    category,
+    type
   };
-
-  if (transactionData.type === 'debt') {
-    transactionData.related_person = formData.get('related-person');
+  if (type === 'debt') {
+    const relatedId = formData.get('related-person');
+    if (relatedId) {
+      // Fetch related person name from related table
+      const { data: related, error } = await supabase
+        .from('related')
+        .select('id, name')
+        .eq('id', relatedId)
+        .single();
+      if (!error && related) {
+        transactionData.related_person = related.name;
+        transactionData.related_id = related.id;
+      } else {
+        transactionData.related_person = '';
+        transactionData.related_id = '';
+      }
+    } else {
+      transactionData.related_person = '';
+      transactionData.related_id = '';
+    }
     transactionData.is_paid = formData.get('is-paid') === 'on' ? 1 : 0;
   } else {
     transactionData.is_paid = null;
   }
-
-  const id = transactionIdInput.value;
   if (id) {
-    // When updating, preserve the existing is_paid value for debt transactions
-    const { data: existingTransaction } = await supabase
-      .from('transactions')
-      .select('is_paid')
-      .eq('id', id)
-      .single();
-
-    if (existingTransaction && transactionData.type === 'debt') {
-      transactionData.is_paid = formData.get('is-paid') === 'on' ? 1 : 0;
-    }
-
+    // ... existing code ...
     await updateTransaction(id, transactionData);
   } else {
     await addTransaction(transactionData);
   }
-
   saveBtnText.classList.remove('hidden');
   saveSpinner.classList.add('hidden');
   document.getElementById('save-btn').disabled = false;
-
   closeModal();
   loadAndRenderData();
 });
@@ -940,6 +1076,73 @@ document.addEventListener('DOMContentLoaded', () => {
   if (exportExcelBtn) {
     exportExcelBtn.addEventListener('click', exportExcel);
   }
+
+  // Chat functionality
+  const chatBubble = document.getElementById('chat-bubble');
+  const chatModal = document.getElementById('chat-modal');
+  const closeChat = document.getElementById('close-chat');
+  const chatForm = document.getElementById('chat-form');
+  const chatInput = document.getElementById('chat-input');
+  const chatMessages = document.getElementById('chat-messages');
+
+  if (chatBubble && chatModal && closeChat && chatForm && chatInput && chatMessages) {
+    chatBubble.addEventListener('click', () => {
+      const isVisible = !chatModal.classList.contains('invisible');
+      if (isVisible) {
+        chatModal.classList.add('invisible', 'opacity-0');
+        chatModal.classList.remove('opacity-100');
+      } else {
+        chatModal.classList.remove('invisible', 'opacity-0');
+        chatModal.classList.add('opacity-100');
+      }
+    });
+
+    closeChat.addEventListener('click', () => {
+      chatModal.classList.add('invisible', 'opacity-0');
+      chatModal.classList.remove('opacity-100');
+    });
+
+    chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const message = chatInput.value.trim();
+      if (message) {
+        // Add user message
+        const userMessage = document.createElement('div');
+        userMessage.className = 'flex items-start justify-end';
+        userMessage.innerHTML = `
+          <div class="mr-3 bg-blue-600 rounded-lg py-2 px-4 max-w-[80%]">
+            <p class="text-sm text-white">${message}</p>
+          </div>
+        `;
+        chatMessages.appendChild(userMessage);
+        
+        // Clear input
+        chatInput.value = '';
+        
+        // Scroll to bottom
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Simulate response after 1 second
+        setTimeout(() => {
+          const botMessage = document.createElement('div');
+          botMessage.className = 'flex items-start';
+          botMessage.innerHTML = `
+            <div class="flex-shrink-0">
+              <div class="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
+                <i data-lucide="user" class="h-5 w-5 text-white"></i>
+              </div>
+            </div>
+            <div class="ml-3 bg-gray-100 rounded-lg py-2 px-4 max-w-[80%]">
+              <p class="text-sm text-gray-800">Đã bảo đang phát triển rồi @@</p>
+            </div>
+          `;
+          chatMessages.appendChild(botMessage);
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+          lucide.createIcons();
+        }, 1000);
+      }
+    });
+  }
 });
 
 // Add a test function to verify event handling
@@ -1159,5 +1362,29 @@ async function markDebtAsPaid(id) {
   } catch (error) {
     console.error('Lỗi khi cập nhật trạng thái nợ:', error);
     alert('Có lỗi xảy ra khi cập nhật trạng thái nợ.');
+  }
+}
+
+async function populateRelatedPersonSelect(selectedId = null) {
+  const select = document.getElementById('related-person');
+  if (!select) return;
+  // Clear old options except placeholder
+  select.innerHTML = '<option value="">Chọn người liên quan...</option>';
+  const { data, error } = await supabase
+    .from('related')
+    .select('id, name')
+    .eq('user_id', currentUser.id);
+  if (error) {
+    console.error('Lỗi khi lấy danh sách người liên quan:', error);
+    return;
+  }
+  data.forEach(person => {
+    const option = document.createElement('option');
+    option.value = person.id;
+    option.textContent = person.name;
+    select.appendChild(option);
+  });
+  if (selectedId) {
+    select.value = selectedId;
   }
 }
